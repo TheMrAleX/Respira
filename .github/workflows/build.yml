@@ -1,0 +1,73 @@
+name: Build Android APKs (Debug & Release)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant execute permission for gradlew
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x gradlew
+          fi
+
+      - name: Generate Auto Keystore for Release
+        run: |
+          mkdir -p keystore
+          keytool -genkeypair -v \
+            -keystore keystore/release-key.jks \
+            -alias respira_key \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "RespiraPassword123" \
+            -keypass "RespiraPassword123" \
+            -dname "CN=Respira, OU=App, O=Respira, L=City, ST=State, C=US"
+
+      - name: Build Debug & Release APKs
+        env:
+          KEYSTORE_FILE: "../keystore/release-key.jks"
+          KEYSTORE_PASSWORD: "RespiraPassword123"
+          KEY_ALIAS: "respira_key"
+          KEY_PASSWORD: "RespiraPassword123"
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug assembleRelease --stacktrace
+          else
+            gradle assembleDebug assembleRelease --stacktrace
+          fi
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Respira-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Respira-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          
