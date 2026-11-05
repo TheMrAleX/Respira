@@ -1,0 +1,51 @@
+name: Bootstrap Respira
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Run setup.sh
+        run: bash setup.sh
+
+      - name: Remove bootstrap script and commit
+        run: |
+          rm -f setup.sh
+          git config user.name "respira-bot"
+          git config user.email "respira-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Bootstrap Respira" || echo "nothing to commit"
+          git push
+
+      - name: Zip source
+        run: |
+          zip -rq Respira-source.zip . \
+            -x '.git/*' -x '.gradle/*' -x '*/build/*' -x 'build/*'
+
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Upload source zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: Respira-source-zip
+          path: Respira-source.zip
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Respira-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
